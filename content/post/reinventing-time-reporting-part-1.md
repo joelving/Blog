@@ -2,7 +2,6 @@
 title: "Reinventing time reporting with modern .NET - part 1"
 slug: "reinventing-time-reporting-modern-dot-net-part-1"
 date: 2018-10-08T12:00:00+02:00
-draft: true
 ---
 
 It's a wonderful time to be a .Net-developer. The .Net Core-team and so many others in the community is doing absolutely marvelous work reinventing the platform.
