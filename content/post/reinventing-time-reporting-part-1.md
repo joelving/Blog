@@ -45,7 +45,7 @@ Voilá, we have ourselves a PipeReader, ready feed us our iCal-feeds.
 
 
 ### Do one thing and do it well
-The .Net-team has chosen a very narrow focus for the System.Memory APIs which I applaud . With a change that propagates throughout the entire BCL, this becomes even more appropriate. Unfortunately for us, that means that searching is not as easy as it could be.
+The .Net-team has chosen a very narrow focus for the System.Memory APIs which I applaud. With a change that propagates throughout the entire BCL, this becomes even more appropriate. Unfortunately for us, that means fewer convenience methods that we'll have to implement ourselves - including searching.
 
 Spans and Memory are abstractions over contiguous memory and searching here is easy - we have an IndexOf method just like we're used to. Unfortunately, we don't get Spans or Memorys from our Pipe, we get ReadOnlySequences. ReadOnlySequences are basically linked lists of Memory becoming an abstraction over disjoint pieces of memory. We can imagine how it works: Whenever new data comes in from the socket, it's placed into a contiguous range of memory. As data comes in (but isn't yet consumed) these pieces pile up, but while each individual piece is contiguous, we can't be sure that they are lined up one after another in physical memory. I could get them all as a contiguous piece of memory, but it would require a copy. ReadOnlySequences gives me a close abstraction, but without the copy to a new contiguous piece of memory.
 
@@ -164,11 +164,10 @@ public static async ValueTask GetEvents(PipeReader reader, Action<Event> callbac
 }
 {{< /highlight >}}
 
-It looks a lot like stream, but there's a lot going on under the covers, as David's post showed. From a consumer perspective, it looks a lot like a naive stream implementation - which is good, since it means it's simple to reason about.
-
+From a consumer perspective, it looks a lot like a naive stream implementation - which is good, since it means it's simple to reason about - but as Davids post show, there's a lot going on under the covers.
 The main difference is that while a stream consumes data as part of reading it (unless you peek, which generally require an additional copy), you have to be explicit about it with pipes. When you read, you get all available data but nothing is discarded. Only once you call .AdvanceTo(), does the pipe discard data up to the position you specify.
 
-Pipe introduces a new concept as part of its back pressure mechanism, which you can see play out in the second call to AdvanceTo() (for the case where we didn't find an entire Event). Here we tell the pipe that we've consumed data up to some position which can then be discarded and the memory recycled, but that we've examined all of the buffer. This tells the pipe that it shouldn't return from a call to .ReadAsync() until it has new data. Even though it has unconsumed data, it should wait for more. No more spinning waits filling duplicate buffers. Fantastic!
+Pipe introduces a new concept as part of its back pressure mechanism, which you can see play out in the second call to .AdvanceTo() (for the case where we didn't find an entire Event). Here we tell the pipe that we've consumed data up to some position (in our case, up to the beginning of the BEGIN:VEVENT-tag) which can then be discarded and the memory recycled, but that we've examined all of the buffer. This tells the pipe that it shouldn't return from a call to .ReadAsync() until it has new data. Even though it has unconsumed data, it should wait for more. No more spinning waits filling duplicate buffers. Fantastic!
 
 
 ### Parsing iCal feeds
@@ -314,6 +313,6 @@ So, roughly 16 times as fast and allocations almost eliminated compared to almos
 
 ## Until next time
 
-Thank you for sticking with me this far. If you've spotted any errors, poor design choices or other possibilities for improvement, please let me know by filing a pull request against <a href="https://github.com/joelving/Blog" target="_blank" rel="noopener">this sites repo</a>.
+Thank you for sticking with me this far. If you've spotted any errors, poor design choices or other possibilities for improvement, please let me know by filing a pull request against <a href="https://github.com/joelving/Blog" target="_blank" rel="noopener">this sites repo</a>. I'll expand the iCal-parser as needed for this series, but don't expect it to ever match iCal.NET.
 
 Next time we'll build a asynchronous task runner using the IHostedService interface. We'll also look at how simple it is to add connection resilience using Polly. Stay tuned!
