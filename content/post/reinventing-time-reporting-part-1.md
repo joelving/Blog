@@ -30,10 +30,10 @@ Since this is written as I go along it's difficult to give an exact outline of w
 - **Building a real-time client**: Building a front-end in Blazor and having it communicate with the server using SignalR. We'll also add progress reporting from our background tasks.
 
 ## Pipes for parsing
-If you've never heard of pipes before, I suggest you take a few minutes to read up on <a href="https://blogs.msdn.microsoft.com/dotnet/2018/07/09/system-io-pipelines-high-performance-io-in-net/" target="_blank">David Fowler's excellent introduction</a> and <a href="https://blog.marcgravell.com/2018/07/pipe-dreams-part-1.html" target="_blank">Marc Gravell's amazing in-depth series</a>. In short, it's streams on steroids: you get buffer management, partial reads, back-pressure & flow control, and first-class support for the new System.Memory APIs, meaning near-zero allocations.
-For our use case, our data sources are external. We'll fetch the iCal-feeds from online calendar systems via Http or from files (during testing). Since we're bringing them in from external sources (namely via HTTP) where data arrives when it arrives, we might benefit from processing them using the brand new [System.IO.Pipelines](https://www.nuget.org/packages/System.IO.Pipelines/) APIs.
+If you've never heard of pipes before, I suggest you take a few minutes to read up on <a href="https://blogs.msdn.microsoft.com/dotnet/2018/07/09/system-io-pipelines-high-performance-io-in-net/" target="_blank" rel="noopener">David Fowler's excellent introduction</a> and <a href="https://blog.marcgravell.com/2018/07/pipe-dreams-part-1.html" target="_blank" rel="noopener">Marc Gravell's amazing in-depth series</a>. In short, it's streams on steroids: you get buffer management, partial reads, back-pressure & flow control, and first-class support for the new System.Memory APIs, meaning near-zero allocations.
+For our use case, our data sources are external. We'll fetch the iCal-feeds from online calendar systems via Http or from files (during testing). Since we're bringing them in from external sources (namely via HTTP) where data arrives when it arrives, we might benefit from processing them using the brand new <a href="https://www.nuget.org/packages/System.IO.Pipelines/" target="_blank" rel="noopener">System.IO.Pipelines</a> APIs.
 
-Unfortunately, not too many APIs return pipes yet and our HttpClient is no exception - we still only get streams. Thankfully, we don't have to deal with all the buffer management ourselves as Marc Gravell and the rest of the Stack Overflow team has built the plumbing for us, available on Nuget as [Pipelines.Sockets.Unofficial](https://www.nuget.org/packages/Pipelines.Sockets.Unofficial/), making it a trivial task.
+Unfortunately, not too many APIs return pipes yet and our HttpClient is no exception - we still only get streams. Thankfully, we don't have to deal with all the buffer management ourselves as Marc Gravell and the rest of the Stack Overflow team has built the plumbing for us, available on Nuget as <a href="https://www.nuget.org/packages/Pipelines.Sockets.Unofficial/" target="_blank" rel="noopener">Pipelines.Sockets.Unofficial</a>, making it a trivial task.
 
 {{< highlight csharp >}}
 using Pipelines.Sockets.Unofficial;
@@ -227,7 +227,9 @@ private static void ReadEvent(ReadOnlySequence<byte> payload, out Event nextEven
 }
 {{< /highlight >}}
 
-With our line neatly cut out for us, we can split it according to <a href="https://tools.ietf.org/html/rfc5545" target="_blank">RFC 5545</a>. In particular, we need the syntax:
+> **Newbie tip:** You can't very easily translate a SequencePosition to an index, but if you are only slicing from the front, you can subtract the length of the result from the original in order to get the index. Took me a while to figure out.
+
+With our line neatly cut out for us, we can split it according to <a href="https://tools.ietf.org/html/rfc5545" target="_blank" rel="noopener">RFC 5545</a>. In particular, we need the syntax:
 
 {{< highlight pseudo >}}
 contentline = name *(";" param ) ":" value CRLF
@@ -276,7 +278,7 @@ private static void UpdateProperty(ReadOnlySequence<byte> name, ReadOnlySequence
 
 ### String creation
 
-Only thing missing above is the .ToString(Encoding encoding) overload above. Creating strings from ReadOnlySequences aren't very easy, so I added the extension method based on David Fowler's article.
+Only thing missing is the .ToString(Encoding encoding) overload above. Creating strings from ReadOnlySequences aren't very easy and documentation is very sparse, so I added the extension method based on David Fowler's article.
 
 {{< highlight csharp >}}
 [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -302,9 +304,9 @@ Again, if the sequence consists of a single segment, we have built-in helpers do
 
 ## Is it worth all the trouble?
 
-We can parse the parts of the iCal feed that we are interested in and skip the rest, with (hopefully) very few allocations along the way. But is it worth it? The code is a bit more complex than it could have been, particularly considering that excellent libraries such as <a href="https://github.com/rianjs/ical.net" target="_blank">iCal.Net</a>.
+We can parse the parts of the iCal feed that we are interested in and skip the rest, with (hopefully) very few allocations along the way. But is it worth it? The code is a bit more complex than it could have been, particularly considering that excellent libraries such as <a href="https://github.com/rianjs/ical.net" target="_blank" rel="noopener">iCal.Net</a>.
 
-I'm going to compare the two using <a href="https://benchmarkdotnet.org" target="_blank">BenchmarkDotNet</a>. It's a decidedly apples-to-oranges comparison. iCal.Net is a fully RFC 5545-compliant library while what we're doing here is very limited in scope. It is in no way transferable to anything but this specific use case, but in our particular situation where the choice is between the two, it makes sense.
+I'm going to compare the two using <a href="https://benchmarkdotnet.org" target="_blank" rel="noopener">BenchmarkDotNet</a>. It's a decidedly apples-to-oranges comparison. iCal.Net is a fully RFC 5545-compliant library while what we're doing here is very limited in scope. It is in no way transferable to anything but this specific use case, but in our particular situation where the choice is between the two, it makes sense.
 
 {{< image classes="fancybox" src="/assets/images/iCalPipes.png" title="Benchmark.net output" >}}
 
@@ -312,6 +314,6 @@ So, roughly 16 times as fast and allocations almost eliminated compared to almos
 
 ## Until next time
 
-Thank you for sticking with me this far. If you've spotted any errors, poor design choices or other possibilities for improvement, please let me know by filing a pull request against <a href="" target="_blank">this sites repo</a>.
+Thank you for sticking with me this far. If you've spotted any errors, poor design choices or other possibilities for improvement, please let me know by filing a pull request against <a href="https://github.com/joelving/Blog" target="_blank" rel="noopener">this sites repo</a>.
 
 Next time we'll build a asynchronous task runner using the IHostedService interface. We'll also look at how simple it is to add connection resilience using Polly. Stay tuned!
