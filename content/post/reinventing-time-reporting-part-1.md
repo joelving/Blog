@@ -2,6 +2,7 @@
 title: "Reinventing time reporting with modern .NET - part 1"
 slug: "reinventing-time-reporting-modern-dot-net-part-1"
 date: 2018-10-08T12:00:00+02:00
+lastmod: 2018-10-10T09:30:00+02:00
 ---
 
 It's a wonderful time to be a .Net-developer. The .Net Core-team and so many others in the community is doing absolutely marvelous work reinventing the platform.
@@ -12,7 +13,7 @@ I feel like a kid at Christmas.
 In the spirit of reinvention, I'm going to rebuild an old hobby project of mine - time reporting for consultants - using all of the tools mentioned above.
 As most of the technologies are fairly new to me, there's bound to be mistakes, bad practices and more in the code. If you see something, say something. The primary goal is to learn. :-)
 
-The code for this project is available on <a href="https://github.com/joelving/Khronos" title="See the code on GitHub" target="_blank">GitHub</a>.
+The code for this project is available on <a href="https://github.com/joelving/Khronos" title="See the code on GitHub" target="_blank" rel="noopener">GitHub</a>.
 
 ## The case & one solution
 A major administrative pain for contractors (or maybe just me...) is tracking, reporting and invoicing time spent on projects. A multitude of solutions exist but somehow they seem to be just another layer of endless forms to fill out, making the process even more time-consuming.
@@ -307,7 +308,7 @@ We can parse the parts of the iCal feed that we are interested in and skip the r
 
 I'm going to compare the two using <a href="https://benchmarkdotnet.org" target="_blank" rel="noopener">BenchmarkDotNet</a>. It's a decidedly apples-to-oranges comparison. iCal.Net is a fully RFC 5545-compliant library while what we're doing here is very limited in scope. It is in no way transferable to anything but this specific use case, but in our particular situation where the choice is between the two, it makes sense.
 
-{{< image classes="fancybox" src="/assets/images/iCalPipes.png" title="Benchmark.net output" >}}
+{{< image src="/assets/images/iCalPipes.png" title="Benchmark.net output" >}}
 
 So, roughly 16 times as fast and allocations almost eliminated compared to almost 82 MB and a lot of long-lived references. Nice!
 

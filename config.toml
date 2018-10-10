@@ -2,7 +2,7 @@ baseURL = "https://blog.joelving.dk/"
 languageCode = "en-us"
 defaultContentLanguage = "en-us"
 title = "Adventures in .Net"
-theme = "tranquilpeak"
+theme = ["joelving", "tranquilpeak"]
 paginate = 7
 canonifyurls = true
 
@@ -71,7 +71,7 @@ canonifyurls = true
   # If false it will flat categories.
   hierarchicalCategories = true
 
-  description = "Hugo tranquilpeak theme demo"
+  description = ""
 
   # Customization
   # Define the behavior of the sidebar
