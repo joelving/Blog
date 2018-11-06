@@ -57,19 +57,19 @@ We won't reinvent the wheel on this one, so if the sequence consists of only one
 [MethodImpl(MethodImplOptions.AggressiveInlining)]
 public static SequencePosition? PositionOf<T>(in this ReadOnlySequence<T> source, ReadOnlySpan<T> value) where T : IEquatable<T>
 {
-	if (source.IsEmpty || value.IsEmpty)
-		return null;
+    if (source.IsEmpty || value.IsEmpty)
+        return null;
 
-	if (source.IsSingleSegment)
-	{
-		var index = source.First.Span.IndexOf(value);
-		if (index > -1)
-			return source.GetPosition(index);
-		else
-			return null;
-	}
+    if (source.IsSingleSegment)
+    {
+        var index = source.First.Span.IndexOf(value);
+        if (index > -1)
+            return source.GetPosition(index);
+        else
+            return null;
+    }
 
-	return PositionOfMultiSegment(source, value);
+    return PositionOfMultiSegment(source, value);
 }
 {{< /highlight >}}
 
@@ -79,53 +79,53 @@ What we'll do is search for the first element in our needle. If it matches, we'l
 {{< highlight csharp >}}
 public static SequencePosition? PositionOfMultiSegment<T>(in ReadOnlySequence<T> source, ReadOnlySpan<T> value) where T : IEquatable<T>
 {
-	var firstVal = value[0];
+    var firstVal = value[0];
 
-	SequencePosition position = source.Start;
-	SequencePosition result = position;
-	while (source.TryGet(ref position, out ReadOnlyMemory<T> memory))
-	{
-		var offset = 0;
-		while (offset < memory.Length)
-		{
-			var index = memory.Span.Slice(offset).IndexOf(firstVal);
-			if (index == -1)
-				break;
+    SequencePosition position = source.Start;
+    SequencePosition result = position;
+    while (source.TryGet(ref position, out ReadOnlyMemory<T> memory))
+    {
+        var offset = 0;
+        while (offset < memory.Length)
+        {
+            var index = memory.Span.Slice(offset).IndexOf(firstVal);
+            if (index == -1)
+                break;
 
-			var candidatePos = source.GetPosition(index + offset, result);
-			if (source.MatchesFrom(value, candidatePos))
-				return candidatePos;
+            var candidatePos = source.GetPosition(index + offset, result);
+            if (source.MatchesFrom(value, candidatePos))
+                return candidatePos;
 
-			offset += index + 1;
-		}
-		if (position.GetObject() == null)
-		{
-			break;
-		}
+            offset += index + 1;
+        }
+        if (position.GetObject() == null)
+        {
+            break;
+        }
 
-		result = position;
-	}
+        result = position;
+    }
 
-	return null;
+    return null;
 }
 
 
 public static bool MatchesFrom<T>(in this ReadOnlySequence<T> source, ReadOnlySpan<T> value, SequencePosition? position = null) where T : IEquatable<T>
 {
-	var candidate = position == null ? source : source.Slice(position.Value, value.Length);
-	if (candidate.Length != value.Length)
-		return false;
+    var candidate = position == null ? source : source.Slice(position.Value, value.Length);
+    if (candidate.Length != value.Length)
+        return false;
 
-	int i = 0;
-	foreach (var sequence in candidate)
-	{
-		foreach (var entry in sequence.Span)
-		{
-			if (!entry.Equals(value[i++]))
-				return false;
-		}
-	}
-	return true;
+    int i = 0;
+    foreach (var sequence in candidate)
+    {
+        foreach (var entry in sequence.Span)
+        {
+            if (!entry.Equals(value[i++]))
+                return false;
+        }
+    }
+    return true;
 }
 {{< /highlight >}}
 
@@ -139,29 +139,29 @@ We'll setup a basic loop to look for events as data comes in.
 {{< highlight csharp >}}
 public static async ValueTask GetEvents(PipeReader reader, Action<Event> callback, CancellationToken cancellationToken = default)
 {
-	while (true)
-	{
-		// Tell the pipe we need more data.
-		// It will only return once it has new data we haven't seen.
-		// Unlike a stream the pipe will return bytes we've previously seen but not consumed.
-		var read = await reader.ReadAsync(cancellationToken);
-		if (read.IsCanceled) return;
-		var buffer = read.Buffer;
+    while (true)
+    {
+        // Tell the pipe we need more data.
+        // It will only return once it has new data we haven't seen.
+        // Unlike a stream the pipe will return bytes we've previously seen but not consumed.
+        var read = await reader.ReadAsync(cancellationToken);
+        if (read.IsCanceled) return;
+        var buffer = read.Buffer;
 
-		if (TryParseEvent(buffer, out Event nextEvent, out SequencePosition consumedTo))
-		{
-			// We explicitly tell the pipe that we've used a certain amount of bytes.
-			// The pipe will then release that memory back the pool from which it was rented.
-			reader.AdvanceTo(consumedTo);
-			callback(nextEvent);
-			continue;
-		}
+        if (TryParseEvent(buffer, out Event nextEvent, out SequencePosition consumedTo))
+        {
+            // We explicitly tell the pipe that we've used a certain amount of bytes.
+            // The pipe will then release that memory back the pool from which it was rented.
+            reader.AdvanceTo(consumedTo);
+            callback(nextEvent);
+            continue;
+        }
 
-		// We didn't find what we're looking for.
-		// Signal the pipe that we've seen it all but only used some of it.
-		reader.AdvanceTo(consumedTo, buffer.End);
-		if (read.IsCompleted) return;
-	}
+        // We didn't find what we're looking for.
+        // Signal the pipe that we've seen it all but only used some of it.
+        reader.AdvanceTo(consumedTo, buffer.End);
+        if (read.IsCompleted) return;
+    }
 }
 {{< /highlight >}}
 
@@ -181,49 +181,49 @@ Unfortunately, we need to check that the linebreak isn't followed by a space or 
 {{< highlight csharp >}}
 private static void ReadEvent(ReadOnlySequence<byte> payload, out Event nextEvent)
 {
-	nextEvent = new Event();
-	// Loop through all the content lines and parse them.
-	var eof = false;
-	var linestart = 0L;
-	while (!eof)
-	{
-		// Find the next line
-		var offset = linestart;
-		SequencePosition? eol = null;
-		while (offset < payload.Length)
-		{
-			var remainder = payload.Slice(offset);
-			offset = payload.Length - remainder.Length;
-			eol = remainder.PositionOf(UTF8Constants.NewLine.Span);
-			if (eol == null)
-			{
-				// We're past the last line break and thus done!
-				eof = true;
-				return;
-			}
+    nextEvent = new Event();
+    // Loop through all the content lines and parse them.
+    var eof = false;
+    var linestart = 0L;
+    while (!eof)
+    {
+        // Find the next line
+        var offset = linestart;
+        SequencePosition? eol = null;
+        while (offset < payload.Length)
+        {
+            var remainder = payload.Slice(offset);
+            offset = payload.Length - remainder.Length;
+            eol = remainder.PositionOf(UTF8Constants.NewLine.Span);
+            if (eol == null)
+            {
+                // We're past the last line break and thus done!
+                eof = true;
+                return;
+            }
 
-			// We got a CRLF - check that it's not followed by a tab or a space.
-			var atCRLF = remainder.Slice(eol.Value);
-			if (atCRLF.Length > UTF8Constants.NewLine.Length)
-			{
-				var nextByte = atCRLF.Slice(UTF8Constants.NewLine.Length, 1).First.Span[0];
-				if (nextByte == UTF8Constants.Tab || nextByte == UTF8Constants.Space)
-				{
-					offset += payload.Length - atCRLF.Length + UTF8Constants.NewLine.Length + 1;
-					continue;
-				}
-			}
+            // We got a CRLF - check that it's not followed by a tab or a space.
+            var atCRLF = remainder.Slice(eol.Value);
+            if (atCRLF.Length > UTF8Constants.NewLine.Length)
+            {
+                var nextByte = atCRLF.Slice(UTF8Constants.NewLine.Length, 1).First.Span[0];
+                if (nextByte == UTF8Constants.Tab || nextByte == UTF8Constants.Space)
+                {
+                    offset += payload.Length - atCRLF.Length + UTF8Constants.NewLine.Length + 1;
+                    continue;
+                }
+            }
 
-			// Slice from start to line break
-			var line = payload.Slice(linestart, eol.Value);
-			TryParseLine(line, nextEvent);
-			// Read past the line break
-			linestart += line.Length + UTF8Constants.NewLine.Length;
-			break;
-		}
-		if (offset >= payload.Length)
-			break;
-	}
+            // Slice from start to line break
+            var line = payload.Slice(linestart, eol.Value);
+            TryParseLine(line, nextEvent);
+            // Read past the line break
+            linestart += line.Length + UTF8Constants.NewLine.Length;
+            break;
+        }
+        if (offset >= payload.Length)
+            break;
+    }
 }
 {{< /highlight >}}
 
@@ -240,39 +240,39 @@ Since our interest is very limited, we won't bother with parameters for now. If 
 {{< highlight csharp >}}
 private static bool TryParseLine(ReadOnlySequence<byte> buffer, Event nextEvent)
 {
-	// Per RFC 5545 contentlines have the following syntax:
-	// contentline = name *(";" param ) ":" value CRLF
-	// meaning we'll read until ; or : and treat accordingly
+    // Per RFC 5545 contentlines have the following syntax:
+    // contentline = name *(";" param ) ":" value CRLF
+    // meaning we'll read until ; or : and treat accordingly
 
-	var valueDelim = buffer.PositionOf(UTF8Constants.Colon);
-	if (valueDelim == null)
-	{
-		// The line is somehow invalid. Abort.
-		return false;
-	}
-	
-	var nameAndParams = buffer.Slice(0, valueDelim.Value);
-	var value = buffer.Slice(valueDelim.Value).Slice(1);
+    var valueDelim = buffer.PositionOf(UTF8Constants.Colon);
+    if (valueDelim == null)
+    {
+        // The line is somehow invalid. Abort.
+        return false;
+    }
+    
+    var nameAndParams = buffer.Slice(0, valueDelim.Value);
+    var value = buffer.Slice(valueDelim.Value).Slice(1);
 
-	// Check for parameters - for our use, we don't care about their values, so we simply ignore them.
-	var paramDelim = nameAndParams.PositionOf(UTF8Constants.Semicolon);
-	var name = paramDelim == null ? nameAndParams : nameAndParams.Slice(0, paramDelim.Value);
-	var parameters = paramDelim == null ? new ReadOnlySequence<byte>() : nameAndParams.Slice(paramDelim.Value).Slice(1);
+    // Check for parameters - for our use, we don't care about their values, so we simply ignore them.
+    var paramDelim = nameAndParams.PositionOf(UTF8Constants.Semicolon);
+    var name = paramDelim == null ? nameAndParams : nameAndParams.Slice(0, paramDelim.Value);
+    var parameters = paramDelim == null ? new ReadOnlySequence<byte>() : nameAndParams.Slice(paramDelim.Value).Slice(1);
 
-	UpdateProperty(name, parameters, value, nextEvent);
+    UpdateProperty(name, parameters, value, nextEvent);
 
-	return true;
+    return true;
 }
 
 private static readonly InstantPattern iCalInstantPattern = InstantPattern.CreateWithInvariantCulture("uuuuMMdd'T'HHmmss'Z'");
 private static void UpdateProperty(ReadOnlySequence<byte> name, ReadOnlySequence<byte> parameters, ReadOnlySequence<byte> value, Event nextEvent)
 {
-	if (name.MatchesFrom(UTF8Constants.Attendee.Span))
-	{
-		nextEvent.Attendees.Add(value.ToString(Encoding.UTF8));
-	}
-	
-	// Most properties left out for brevity.
+    if (name.MatchesFrom(UTF8Constants.Attendee.Span))
+    {
+        nextEvent.Attendees.Add(value.ToString(Encoding.UTF8));
+    }
+    
+    // Most properties left out for brevity.
 }
 {{< /highlight >}}
 
@@ -284,19 +284,19 @@ Only thing missing is the .ToString(Encoding encoding) overload above. Creating 
 [MethodImpl(MethodImplOptions.AggressiveInlining)]
 public static string ToString(in this ReadOnlySequence<byte> buffer, Encoding encoding)
 {
-	if (buffer.IsSingleSegment)
-	{
-		return encoding.GetString(buffer.First.Span);
-	}
+    if (buffer.IsSingleSegment)
+    {
+        return encoding.GetString(buffer.First.Span);
+    }
 
-	return string.Create((int)buffer.Length, buffer, (span, sequence) =>
-	{
-		foreach (var segment in sequence)
-		{
-			encoding.GetChars(segment.Span, span);
-			span = span.Slice(segment.Length);
-		}
-	});
+    return string.Create((int)buffer.Length, buffer, (span, sequence) =>
+    {
+        foreach (var segment in sequence)
+        {
+            encoding.GetChars(segment.Span, span);
+            span = span.Slice(segment.Length);
+        }
+    });
 }
 {{< /highlight >}}
 
