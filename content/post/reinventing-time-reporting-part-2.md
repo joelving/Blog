@@ -11,7 +11,7 @@ In this installment, we'll add a background queue and processor to decouple the 
 
 The code for this project can be found on [GitHub](https://github.com/joelving/Khronos) and has been updated for this post. I've also fixed a nasty bug in my buffer extensions, so if you've used the code for anything, please update accordingly.
 
-## Don't keep me waiting
+## Background work in a web app using IHostedService
 We're fetching a bunch of data (iCal feeds), parsing it and storing the parsed result in a database. This could potentially be quite time-consuming, even though our parser was crazy fast, so we don't want to block our client while we work.
 
 So how do we do it? We need to offload the processing to something other than our request thread. Working with Azure, I'd usually look to WebJobs, but with the introduction of the IHostedService interface, we get the same power without ever leaving the context of our app. Neat, since we'll have a much easier time shuttling messages back and forth as we shall see.
@@ -92,9 +92,9 @@ Third, while our queue itself runs in its own thread, we fire off our jobs *to t
 
 To wire it all up, we'll add the following to our ConfigureServices in our Startup class:
 {{< highlight csharp >}}
-    services.AddSingleton<IBackgroundQueue<SyncJob>, SyncJobQueue>();
-    services.AddTransient<IBackgroundJobProcessor<SyncJob>, SyncJobProcessor>();
-    services.AddHostedService<BackgroundQueueService<SyncJob>>();
+services.AddSingleton<IBackgroundQueue<SyncJob>, SyncJobQueue>();
+services.AddTransient<IBackgroundJobProcessor<SyncJob>, SyncJobProcessor>();
+services.AddHostedService<BackgroundQueueService<SyncJob>>();
 {{< /highlight >}}
 Where SyncJob is the type of job we want to process, SyncJobQueue and SyncJobProcessor implementations of the queue and processor respectively.
 
@@ -144,7 +144,7 @@ I've augmented Lukes implementation with another Semaphore (_maxQueueSize), whic
 
 > I feel clever writing this. Too clever, the kind that experience teach you to be suspicious about - so if you see an issue with the approach, please let me know!
 
-## Are we there yet?
+## Progress updates using SignalR
 Now we can process our jobs asynchronously in the background, but we have no way of knowing when they're done. I hate polling so we need a way to let our job processor tell the client when it's done. Maybe we can even stuff a few helpful status messages in there along the way, so the user has an idea how it's going.
 
 Enter SignalR...
