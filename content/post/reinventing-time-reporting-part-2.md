@@ -22,9 +22,9 @@ So we need a straightforward queue:
 {{< highlight csharp >}}
 public interface IBackgroundQueue<T>
 {
-	Task EnqueueAsync(T job, CancellationToken cancellationToken);
+    Task EnqueueAsync(T job, CancellationToken cancellationToken);
 
-	Task<(T job, Action callback)> DequeueAsync(CancellationToken cancellationToken);
+    Task<(T job, Action callback)> DequeueAsync(CancellationToken cancellationToken);
 }
 {{< /highlight >}}
 
@@ -32,7 +32,7 @@ A simple processor:
 {{< highlight csharp >}}
 public interface IBackgroundJobProcessor<T>
 {
-	Task ProcessJob((T job, Action callback) job, CancellationToken cancellationToken);
+    Task ProcessJob((T job, Action callback) job, CancellationToken cancellationToken);
 }
 {{< /highlight >}}
 
@@ -40,48 +40,48 @@ And something to dispatch from one to the other:
 {{< highlight csharp >}}
 public class BackgroundQueueService<T> : BackgroundService
 {
-	public IBackgroundQueue<T> TaskQueue { get; }
-	private readonly ILogger _logger;
-	private readonly IServiceScopeFactory _scopeFactory;
+    public IBackgroundQueue<T> TaskQueue { get; }
+    private readonly ILogger _logger;
+    private readonly IServiceScopeFactory _scopeFactory;
 
-	public BackgroundQueueService(IBackgroundQueue<T> taskQueue, ILoggerFactory loggerFactory, IServiceScopeFactory scopeFactory)
-	{
-		TaskQueue = taskQueue;
-		_logger = loggerFactory.CreateLogger<BackgroundQueueService<T>>();
-		_scopeFactory = scopeFactory;
-	}
+    public BackgroundQueueService(IBackgroundQueue<T> taskQueue, ILoggerFactory loggerFactory, IServiceScopeFactory scopeFactory)
+    {
+        TaskQueue = taskQueue;
+        _logger = loggerFactory.CreateLogger<BackgroundQueueService<T>>();
+        _scopeFactory = scopeFactory;
+    }
 
-	private string ThreadKind
-		=> Thread.CurrentThread.IsThreadPoolThread ? "thread pool" : "non-thread pool";
-	private string ThreadDescription
-		=> $"thread {Thread.CurrentThread.ManagedThreadId} which is a {ThreadKind} thread";
-	protected async override Task ExecuteAsync(CancellationToken cancellationToken)
-	{
-		_logger.LogInformation($"Queue Service is starting on {ThreadDescription}.");
-		
-		while (!cancellationToken.IsCancellationRequested)
-		{
-			var item = await TaskQueue.DequeueAsync(cancellationToken);
+    private string ThreadKind
+        => Thread.CurrentThread.IsThreadPoolThread ? "thread pool" : "non-thread pool";
+    private string ThreadDescription
+        => $"thread {Thread.CurrentThread.ManagedThreadId} which is a {ThreadKind} thread";
+    protected async override Task ExecuteAsync(CancellationToken cancellationToken)
+    {
+        _logger.LogInformation($"Queue Service is starting on {ThreadDescription}.");
+        
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            var item = await TaskQueue.DequeueAsync(cancellationToken);
 
-			Task.Run(async () =>
-			{
-				if (cancellationToken.IsCancellationRequested)
-					return;
+            Task.Run(async () =>
+            {
+                if (cancellationToken.IsCancellationRequested)
+                    return;
 
-				using (var scope = _scopeFactory.CreateScope())
-				{
-					var logger = scope.ServiceProvider.GetRequiredService<ILogger<IBackgroundJobProcessor<T>>>();
-					logger.LogInformation($"Processing job on thread {Thread.CurrentThread.ManagedThreadId} which is a {ThreadKind} thread.");
-					var processor = scope.ServiceProvider.GetRequiredService<IBackgroundJobProcessor<T>>();
+                using (var scope = _scopeFactory.CreateScope())
+                {
+                    var logger = scope.ServiceProvider.GetRequiredService<ILogger<IBackgroundJobProcessor<T>>>();
+                    logger.LogInformation($"Processing job on thread {Thread.CurrentThread.ManagedThreadId} which is a {ThreadKind} thread.");
+                    var processor = scope.ServiceProvider.GetRequiredService<IBackgroundJobProcessor<T>>();
 
-					// The queue is running on it's own thread, dispatching jobs to the thread pool. This is fine since the processing is async and non-blocking.
-					await processor.ProcessJob(item, cancellationToken);
-				}
-			}, cancellationToken);
-		}
+                    // The queue is running on it's own thread, dispatching jobs to the thread pool. This is fine since the processing is async and non-blocking.
+                    await processor.ProcessJob(item, cancellationToken);
+                }
+            }, cancellationToken);
+        }
 
-		_logger.LogInformation("Queue Service is stopping.");
-	}
+        _logger.LogInformation("Queue Service is stopping.");
+    }
 }
 {{< /highlight >}}
 
@@ -107,34 +107,34 @@ I promised to get back to how we could await dequeueing work items from our queu
 {{< highlight csharp >}}
 public class SyncJobQueue : IBackgroundQueue<SyncJob>
 {
-	private ConcurrentQueue<SyncJob> _workItems = new ConcurrentQueue<SyncJob>();
-	private SemaphoreSlim _queuedItems = new SemaphoreSlim(0);
-	private SemaphoreSlim _maxQueueSize;
+    private ConcurrentQueue<SyncJob> _workItems = new ConcurrentQueue<SyncJob>();
+    private SemaphoreSlim _queuedItems = new SemaphoreSlim(0);
+    private SemaphoreSlim _maxQueueSize;
 
-	public SyncJobQueue(int maxQueueSize)
-	{
-		_maxQueueSize = new SemaphoreSlim(maxQueueSize);
-	}
+    public SyncJobQueue(int maxQueueSize)
+    {
+        _maxQueueSize = new SemaphoreSlim(maxQueueSize);
+    }
 
-	public async Task EnqueueAsync(SyncJob job, CancellationToken cancellationToken)
-	{
-		if (job == null)
-			throw new ArgumentNullException(nameof(job));
+    public async Task EnqueueAsync(SyncJob job, CancellationToken cancellationToken)
+    {
+        if (job == null)
+            throw new ArgumentNullException(nameof(job));
 
-		// This causes callers to wait until there's room in the queue.
-		await _maxQueueSize.WaitAsync(cancellationToken);
-		_workItems.Enqueue(job);
-		_queuedItems.Release();
-	}
+        // This causes callers to wait until there's room in the queue.
+        await _maxQueueSize.WaitAsync(cancellationToken);
+        _workItems.Enqueue(job);
+        _queuedItems.Release();
+    }
 
-	public async Task<(SyncJob job, Action callback)> DequeueAsync(CancellationToken cancellationToken)
-	{
-		// This ensures we can never dequeue unless the semaphore has been increased by a corresponding release.
-		await _queuedItems.WaitAsync(cancellationToken);
-		_workItems.TryDequeue(out var job);
+    public async Task<(SyncJob job, Action callback)> DequeueAsync(CancellationToken cancellationToken)
+    {
+        // This ensures we can never dequeue unless the semaphore has been increased by a corresponding release.
+        await _queuedItems.WaitAsync(cancellationToken);
+        _workItems.TryDequeue(out var job);
 
-		return (job, () => _maxQueueSize.Release());
-	}
+        return (job, () => _maxQueueSize.Release());
+    }
 }
 {{< /highlight >}}
 
@@ -168,21 +168,21 @@ We can thus share two interfaces between client and server:
 {{< highlight csharp >}}
 public interface ICalendarHub
 {
-	Task ListCalendars();
-	Task GetCalendar(GetCalendarCommand command);
-	Task AddCalendar(AddCalendarCommand command);
-	Task RefreshCalendar(RefreshCalendarCommand command);
+    Task ListCalendars();
+    Task GetCalendar(GetCalendarCommand command);
+    Task AddCalendar(AddCalendarCommand command);
+    Task RefreshCalendar(RefreshCalendarCommand command);
 }
 {{< /highlight >}}
 and
 {{< highlight csharp >}}
 public interface ICalendarClient
 {
-	Task ReceiveCalendars(ListCalendarsResult result);
-	Task ReceiveCalendar(GetCalendarResult result);
-	Task CalendarAdded(AddCalendarResult result);
-	Task CalendarRefreshing(RefreshCalendarResult result);
-	Task SetProgress(JobProgressResult result);
+    Task ReceiveCalendars(ListCalendarsResult result);
+    Task ReceiveCalendar(GetCalendarResult result);
+    Task CalendarAdded(AddCalendarResult result);
+    Task CalendarRefreshing(RefreshCalendarResult result);
+    Task SetProgress(JobProgressResult result);
 }
 {{< /highlight >}}
 No more magic strings. We'll even strongly type the payloads, so we don't accidentally switch out a task id for a calendar name or something like it.
@@ -191,60 +191,60 @@ So our hub ends up looking a bit like this:
 {{< highlight csharp >}}
 public class CalendarHub : Hub<ICalendarClient>, ICalendarHub
 {
-	// ...
-	public async Task ListCalendars()
-		=> // Omitted for brevity
+    // ...
+    public async Task ListCalendars()
+        => // Omitted for brevity
 
-	public async Task GetCalendar(GetCalendarCommand command)
-		=> // Omitted for brevity
+    public async Task GetCalendar(GetCalendarCommand command)
+        => // Omitted for brevity
 
-	public async Task AddCalendar(AddCalendarCommand command)
-	{
-		// Omitted for brevity
-	}
+    public async Task AddCalendar(AddCalendarCommand command)
+    {
+        // Omitted for brevity
+    }
 
-	public async Task RefreshCalendar(RefreshCalendarCommand command)
-	{
-		var exists = await _dbContext.CalendarFeeds.AnyAsync(c => c.Url == command.Url);
-		if (!exists)
-		{
-			await Clients.Caller.CalendarRefreshing(new RefreshCalendarResult { ErrorMessages = new List<string> { "The calendar isn't registered." } });
-			return;
-		}
+    public async Task RefreshCalendar(RefreshCalendarCommand command)
+    {
+        var exists = await _dbContext.CalendarFeeds.AnyAsync(c => c.Url == command.Url);
+        if (!exists)
+        {
+            await Clients.Caller.CalendarRefreshing(new RefreshCalendarResult { ErrorMessages = new List<string> { "The calendar isn't registered." } });
+            return;
+        }
 
-		var job = new SyncJob
-		{
-			Id = Guid.NewGuid(),
-			FeedUrl = command.Url,
-			Owner = Context.User.Identity?.Name
-		};
+        var job = new SyncJob
+        {
+            Id = Guid.NewGuid(),
+            FeedUrl = command.Url,
+            Owner = Context.User.Identity?.Name
+        };
 
-		await _syncJobQueue.EnqueueAsync(job, Context.ConnectionAborted);
+        await _syncJobQueue.EnqueueAsync(job, Context.ConnectionAborted);
 
-		await Clients.Caller.CalendarRefreshing(new RefreshCalendarResult
-		{
-			Success = true,
-			JobId = job.Id,
-			Url = command.Url
-		});
+        await Clients.Caller.CalendarRefreshing(new RefreshCalendarResult
+        {
+            Success = true,
+            JobId = job.Id,
+            Url = command.Url
+        });
 
-		await SubscribeToJob(job.Id);
-	}
-	
-	public async Task SubscribeToJob(Guid jobId)
-	{
-		await Groups.AddToGroupAsync(Context.ConnectionId, $"{nameof(SyncJob)}:{jobId}");
-		if (_progressCache.ContainsKey(jobId))
-		{
-			var (running, progress) = _progressCache[jobId];
-			await Clients.Caller.SetProgress(new JobProgressResult { Success = true, JobId = jobId, Running = running, Progress = progress });
-		}
-	}
+        await SubscribeToJob(job.Id);
+    }
+    
+    public async Task SubscribeToJob(Guid jobId)
+    {
+        await Groups.AddToGroupAsync(Context.ConnectionId, $"{nameof(SyncJob)}:{jobId}");
+        if (_progressCache.ContainsKey(jobId))
+        {
+            var (running, progress) = _progressCache[jobId];
+            await Clients.Caller.SetProgress(new JobProgressResult { Success = true, JobId = jobId, Running = running, Progress = progress });
+        }
+    }
 
-	public async Task UnsubscribeFromJob(Guid jobId)
-	{
-		await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"{nameof(SyncJob)}:{jobId}");
-	}
+    public async Task UnsubscribeFromJob(Guid jobId)
+    {
+        await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"{nameof(SyncJob)}:{jobId}");
+    }
 }
 {{< /highlight >}}
 
@@ -257,51 +257,51 @@ Bringing it all together, we can write our job processor:
 {{< highlight csharp >}}
 public class SyncJobProcessor : IBackgroundJobProcessor<SyncJob>
 {
-	private readonly IHubContext<CalendarHub, ICalendarClient> _hubContext;
+    private readonly IHubContext<CalendarHub, ICalendarClient> _hubContext;
 
-	public SyncJobProcessor(
-		IHubContext<CalendarHub, ICalendarClient> hubContext
-		)
-	{
-		_hubContext = hubContext;
-	}
+    public SyncJobProcessor(
+        IHubContext<CalendarHub, ICalendarClient> hubContext
+        )
+    {
+        _hubContext = hubContext;
+    }
 
-	public async Task ProcessJob((SyncJob job, Action callback) data, CancellationToken cancellationToken)
-	{
-		var (job, callback) = data;
-		try
-		{
-			await SetProgress(job.Id, true, "Fetching iCal feed.", _hubContext);
-			// Make sure to pass response stream off to pipe before buffering. Otherwise, we'd not see much benefit of using pipes.
-			var response = await _httpClient.GetAsync(job.FeedUrl, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
-			if (!response.IsSuccessStatusCode)
-			{
-				await SetProgress(job.Id, true, $"Failed to fecth iCal feed: {response.ReasonPhrase}.", _hubContext);
-				return;
-			}
+    public async Task ProcessJob((SyncJob job, Action callback) data, CancellationToken cancellationToken)
+    {
+        var (job, callback) = data;
+        try
+        {
+            await SetProgress(job.Id, true, "Fetching iCal feed.", _hubContext);
+            // Make sure to pass response stream off to pipe before buffering. Otherwise, we'd not see much benefit of using pipes.
+            var response = await _httpClient.GetAsync(job.FeedUrl, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                await SetProgress(job.Id, true, $"Failed to fecth iCal feed: {response.ReasonPhrase}.", _hubContext);
+                return;
+            }
 
-			await SetProgress(job.Id, true, "Parsing iCal feed.", _hubContext);
-			var events = await UTF8Parser.ProcessFeed(await response.Content.ReadAsStreamAsync());
-			
-			// Store parsed data in DB - omitted for brevity
+            await SetProgress(job.Id, true, "Parsing iCal feed.", _hubContext);
+            var events = await UTF8Parser.ProcessFeed(await response.Content.ReadAsStreamAsync());
+            
+            // Store parsed data in DB - omitted for brevity
 
-			await SetProgress(job.Id, false, $"Done", _hubContext);
-		}
-		catch (Exception ex)
-		{
-			await SetProgress(job.Id, false, $"Failure!\n{ex}", _hubContext);
-		}
-		finally
-		{
-			// Release our queue semaphore allowing an additional item to be processed.
-			callback();
-		}
-	}
+            await SetProgress(job.Id, false, $"Done", _hubContext);
+        }
+        catch (Exception ex)
+        {
+            await SetProgress(job.Id, false, $"Failure!\n{ex}", _hubContext);
+        }
+        finally
+        {
+            // Release our queue semaphore allowing an additional item to be processed.
+            callback();
+        }
+    }
 
-	private async Task SetProgress(Guid jobId, bool running, string progress, IHubContext<CalendarHub, ICalendarClient> hubContext)
-	{
-		await hubContext.Clients.Groups($"{nameof(SyncJob)}:{jobId}").SetProgress(new JobProgressResult { Success = true, JobId = jobId, Running = running, Progress = progress });
-	}
+    private async Task SetProgress(Guid jobId, bool running, string progress, IHubContext<CalendarHub, ICalendarClient> hubContext)
+    {
+        await hubContext.Clients.Groups($"{nameof(SyncJob)}:{jobId}").SetProgress(new JobProgressResult { Success = true, JobId = jobId, Running = running, Progress = progress });
+    }
 }
 {{< /highlight >}}
 
@@ -311,19 +311,19 @@ Now everyone who's subscribed to the group will get updates on the progress. Fan
 In our job processor above, we fetch the iCal-feed using HTTP. But what if it fails? If the error seems transient, we may want to retry it potentially with a backing off scheme. Using Polly and the new HttpClientFactory, we'll simply register a named http client in our Startup class:
 {{< highlight csharp >}}
 services.AddHttpClient("RetryBacking")
-	.ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler())
-	.AddTransientHttpErrorPolicy(builder => builder.WaitAndRetryAsync(new[]
-	{
-		TimeSpan.FromSeconds(1),
-		TimeSpan.FromSeconds(3),
-		TimeSpan.FromSeconds(5)
-	}));
+    .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler())
+    .AddTransientHttpErrorPolicy(builder => builder.WaitAndRetryAsync(new[]
+    {
+        TimeSpan.FromSeconds(1),
+        TimeSpan.FromSeconds(3),
+        TimeSpan.FromSeconds(5)
+    }));
 {{< /highlight >}}
 which will register a HttpClient that will retry three times when encountering what it deems to be transient errors, waiting 1 second the first time, 3 the second and 5 the last time. In our constructor, we'll do:
 {{< highlight csharp >}}
 public SyncJobProcessor(IHttpClientFactory httpClientFactory)
 {
-	_httpClient = httpClientFactory.CreateClient("RetryBacking");
+    _httpClient = httpClientFactory.CreateClient("RetryBacking");
 }
 {{< /highlight >}}
 
