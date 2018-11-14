@@ -1,7 +1,7 @@
 ---
 title: "Reinventing time reporting with modern .NET - part 2"
 slug: "reinventing-time-reporting-modern-dot-net-part-2"
-date: 2018-10-26T20:27:19+02:00
+date: 2018-11-14T15:30:00+02:00
 ---
 
 This post is part of a series exploring some of the newest features of .Net.
