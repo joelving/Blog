@@ -112,10 +112,12 @@ public static SequencePosition? PositionOfMultiSegment<T>(in ReadOnlySequence<T>
 
 public static bool MatchesFrom<T>(in this ReadOnlySequence<T> source, ReadOnlySpan<T> value, SequencePosition? position = null) where T : IEquatable<T>
 {
-    var candidate = position == null ? source : source.Slice(position.Value, value.Length);
-    if (candidate.Length != value.Length)
+    var slice = position == null ? source : source.Slice(position.Value);
+    if (slice.Length < value.Length)
         return false;
 
+    var candidate = slice.Slice(0, value.Length);
+    
     int i = 0;
     foreach (var sequence in candidate)
     {
@@ -130,6 +132,8 @@ public static bool MatchesFrom<T>(in this ReadOnlySequence<T> source, ReadOnlySp
 {{< /highlight >}}
 
 This is very much a hot path, so any and all optimizations are welcome - please let me know if you see something.
+
+> UPDATE: MatchesFrom previously had a bug caused by missing bounds checks. If you used it for anything, please update it.
 
 
 ### Consuming the pipe
