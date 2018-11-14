@@ -5,7 +5,7 @@ date: 2018-11-14T15:30:00+02:00
 ---
 
 This post is part of a series exploring some of the newest features of .Net.
-[Last time]({{< relref "#anchors" >}}) we looked at how we can use pipes for parsing stream-data with very little overhead. We used it to built our own minimal iCal-parser, to be used in a remake of a time reporting tool for contractors like myself.
+[Last time]({{< relref "reinventing-time-reporting-part-1.md" >}}) we looked at how we can use pipes for parsing stream-data with very little overhead. We used it to built our own minimal iCal-parser, to be used in a remake of a time reporting tool for contractors like myself.
 
 In this installment, we'll add a background queue and processor to decouple the fetching and parsing from our web interface. We'll do this using the new IHostedService interface allowing us to run tasks in the background with SignalR to give us live updates on their progress.
 
