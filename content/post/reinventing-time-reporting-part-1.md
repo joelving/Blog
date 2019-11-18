@@ -312,7 +312,7 @@ We can parse the parts of the iCal feed that we are interested in and skip the r
 
 I'm going to compare the two using <a href="https://benchmarkdotnet.org" target="_blank" rel="noopener">BenchmarkDotNet</a>. It's a decidedly apples-to-oranges comparison. iCal.Net is a fully RFC 5545-compliant library while what we're doing here is very limited in scope. It is in no way transferable to anything but this specific use case, but in our particular situation where the choice is between the two, it makes sense.
 
-{{< image src="/assets/images/iCalPipes.png" title="Benchmark.net output" >}}
+{{< figure src="/assets/images/iCalPipes.png" title="Benchmark.net output" >}}
 
 So, roughly 16 times as fast and allocations almost eliminated compared to almost 82 MB and a lot of long-lived references. Nice!
 
