@@ -19,7 +19,7 @@ We're going for separation of user interface from hosting model, so why not have
 
 Using RCLs are fantastically easy. We simply move all our Blazor components and static web assets (such as stylesheets) into the project, and the SDK will make sure everything is built and packaged for us to consume elsewhere.
 
-{{< figure src="/assets/images/UI project.png" title="Razor Class Library" >}}
+{{< figure src="/assets/images/ui-project.png" title="Razor Class Library" >}}
 
 We can even move our stylesheets to the class library, as long as we remember the naming conventions for embedded resources. As per [the docs](https://docs.microsoft.com/en-us/aspnet/core/razor-pages/ui-class#create-an-rcl-with-static-assets "Create reusable UI using the Razor class library project in ASP.NET Core"), you can add a wwwroot-folder to your class library and have static assets served from it automagically under the path "_content/{library.name}/".
 
