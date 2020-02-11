@@ -2,10 +2,10 @@
 title: "Reinventing time reporting with modern .NET - part 1"
 slug: "reinventing-time-reporting-modern-dot-net-part-1"
 date: 2018-10-08T12:00:00+02:00
-lastmod: 2018-10-10T09:30:00+02:00
+lastmod: 2019-11-21T15:00:00+02:00
 ---
 
-It's a wonderful time to be a .Net-developer. The .Net Core-team and so many others in the community is doing absolutely marvelous work reinventing the platform.
+It's a wonderful time to be a .NET-developer. The .NET Core-team and so many others in the community is doing absolutely marvelous work reinventing the platform.
 As a web dev, I'm inundated with cool new toys to try out - many more than I can get around to:
 Pipe, Span&lt;T>, Memory&lt;T> for near-zero-allocation byte massaging; IHostedService for running background tasks along your website; typed HttpClient, SocketMessageHandler and Polly for making Http even more manageable; SignalR for real-time communication; Blazor for frontends in C#.
 I feel like a kid at Christmas.
@@ -20,7 +20,7 @@ A major administrative pain for contractors (or maybe just me...) is tracking, r
 Of course, I might have missed the perfect tool for the job, so if you know of one - don't tell me.
 
 In a previous job we used Google Calendar events for tracking time. This had the advantage of having a very low barrier of entry since everybody was already using online calendars for managing their schedule. A perl script would then pull the iCal feeds when it was time to do invoicing or salary and parse them accordingly.
-I love how simple the solution is. No new software, very limited change of habits... I'm just not very skilled at perl. Never mind, we're going to use the same basic principle but wrap it in beautiful modern .Net.
+I love how simple the solution is. No new software, very limited change of habits... I'm just not very skilled at perl. Never mind, we're going to use the same basic principle but wrap it in beautiful modern .NET.
 
 ## Table of contents
 
@@ -34,19 +34,105 @@ Since this is written as I go along it's difficult to give an exact outline of w
 If you've never heard of pipes before, I suggest you take a few minutes to read up on <a href="https://blogs.msdn.microsoft.com/dotnet/2018/07/09/system-io-pipelines-high-performance-io-in-net/" target="_blank" rel="noopener">David Fowler's excellent introduction</a> and <a href="https://blog.marcgravell.com/2018/07/pipe-dreams-part-1.html" target="_blank" rel="noopener">Marc Gravell's amazing in-depth series</a>. In short, it's streams on steroids: you get buffer management, partial reads, back-pressure & flow control, and first-class support for the new System.Memory APIs, meaning near-zero allocations.
 For our use case, our data sources are external. We'll fetch the iCal-feeds from online calendar systems via Http or from files (during testing). Since we're bringing them in from external sources (namely via HTTP) where data arrives when it arrives, we might benefit from processing them using the brand new <a href="https://www.nuget.org/packages/System.IO.Pipelines/" target="_blank" rel="noopener">System.IO.Pipelines</a> APIs.
 
-Unfortunately, not too many APIs return pipes yet and our HttpClient is no exception - we still only get streams. Thankfully, we don't have to deal with all the buffer management ourselves as Marc Gravell and the rest of the Stack Overflow team has built the plumbing for us, available on Nuget as <a href="https://www.nuget.org/packages/Pipelines.Sockets.Unofficial/" target="_blank" rel="noopener">Pipelines.Sockets.Unofficial</a>, making it a trivial task.
+Getting a PipeReader from a stream is a one-liner:
 
 {{< highlight csharp >}}
-using Pipelines.Sockets.Unofficial;
-
-var pipeReader = StreamConnection.GetReader(stream);
+var pipeReader = PipeReader.Create(stream, new StreamPipeReaderOptions(bufferSize: 4096));
 {{< /highlight >}}
 
-Voilá, we have ourselves a PipeReader, ready feed us our iCal-feeds.
+Voilá, we have ourselves a PipeReader, ready to feed us our iCal-feeds.
+
+Be mindful of the buffersize: Setting it too low will kill performance as the reader will have to have to keep renting new memory.
+
+{{< alert info >}}
+Prior to .NET Core 3.0, we had to include the <a href="https://www.nuget.org/packages/Pipelines.Sockets.Unofficial/" target="_blank" rel="noopener">Pipelines.Sockets.Unofficial</a>-package from Marc Gravell and the rest of the Stack Overflow team, and create the reader like so:
+
+{{< highlight csharp >}}
+var pipeReader = StreamConnection.GetReader(stream);
+{{< /highlight >}}
+{{< /alert >}}
 
 
 ### Do one thing and do it well
-The .Net-team has chosen a very narrow focus for the System.Memory APIs which I applaud. With a change that propagates throughout the entire BCL, this becomes even more appropriate. Unfortunately for us, that means fewer convenience methods that we'll have to implement ourselves - including searching.
+When I first wrote this post a year ago, Spans were new and the APIs very focused. With .NET Core 3.0 we've gotten a lot of very useful helpers. For our purposes, searching ReadOnlySequences has become a breeze thanks to the new SequenceReader class.
+
+I've included it here, not so much to show how it's done (you should read Steve Gordon's <a href="https://www.stevejgordon.co.uk/an-introduction-to-sequencereader" target="_blank" rel="noopener">introduction to SequenceReader</a> for that) but to contrast what an immense improvement it is.
+
+{{< tabbed-codeblock tabbed_codeblock >}}
+<!-- tab js -->
+function $initHighlight(block, flags) {
+  try {
+    if (block.className.search(/\bno\-highlight\b/) != -1)
+      return processBlock(block.function, true, 0x0F) + ' class=""';
+  } catch (e) {
+    /* handle exception */
+    var e4x =
+        <div>Example
+            <p>1234</p></div>;
+  }
+  for (var i = 0 / 2; i < classes.length; i++) { // "0 / 2" should not be parsed as regexp
+    if (checkCondition(classes[i]) === undefined)
+      return /\d+[\s/]/g;
+  }
+  console.log(Array.every(classes, Boolean));
+}
+<!-- endtab -->
+<!-- tab css -->
+@media screen and (-webkit-min-device-pixel-ratio: 0) {
+  body:first-of-type pre::after {
+    content: 'highlight: ' attr(class);
+  }
+  body {
+    background: linear-gradient(45deg, blue, red);
+  }
+}
+
+@import url('print.css');
+@page:right {
+ margin: 1cm 2cm 1.3cm 4cm;
+}
+
+@font-face {
+  font-family: Chunkfive; src: url('Chunkfive.otf');
+}
+
+div.text,
+#content,
+li[lang=ru] {
+  font: Tahoma, Chunkfive, sans-serif;
+  background: url('hatch.png') /* wtf? */;  color: #F0F0F0 !important;
+  width: 100%;
+}
+<!-- endtab -->
+<!-- tab html -->
+<?xml version="1.0"?>
+<response value="ok" xml:lang="en">
+  <text>Ok</text>
+  <comment html_allowed="true"/>
+  <ns1:description><![CDATA[
+  CDATA is <not> magical.
+  ]]></ns1:description>
+  <a></a> <a/>
+</response>
+
+
+<!DOCTYPE html>
+<title>Title</title>
+
+<style>body {width: 500px;}</style>
+
+<script type="application/javascript">
+  function $init() {return true;}
+</script>
+
+<body>
+  <p checked class="title" id='title'>Title</p>
+  <!-- here goes the rest of the page -->
+</body>
+<!-- endtab -->
+{{< /tabbed-codeblock >}}
+
+The .NET-team has chosen a very narrow focus for the System.Memory APIs which I applaud. With a change that propagates throughout the entire BCL, this becomes even more appropriate. Unfortunately for us, that means fewer convenience methods that we'll have to implement ourselves - including searching.
 
 Spans and Memory are abstractions over contiguous memory and searching here is easy - we have an IndexOf method just like we're used to. Unfortunately, we don't get Spans or Memorys from our Pipe, we get ReadOnlySequences. ReadOnlySequences are basically linked lists of Memory becoming an abstraction over disjoint pieces of memory. We can imagine how it works: Whenever new data comes in from the socket, it's placed into a contiguous range of memory. As data comes in (but isn't yet consumed) these pieces pile up, but while each individual piece is contiguous, we can't be sure that they are lined up one after another in physical memory. I could get them all as a contiguous piece of memory, but it would require a copy. ReadOnlySequences gives me a close abstraction, but without the copy to a new contiguous piece of memory.
 
@@ -308,9 +394,9 @@ Again, if the sequence consists of a single segment, we have built-in helpers do
 
 ## Is it worth all the trouble?
 
-We can parse the parts of the iCal feed that we are interested in and skip the rest, with (hopefully) very few allocations along the way. But is it worth it? The code is a bit more complex than it could have been, particularly considering that excellent libraries such as <a href="https://github.com/rianjs/ical.net" target="_blank" rel="noopener">iCal.Net</a>.
+We can parse the parts of the iCal feed that we are interested in and skip the rest, with (hopefully) very few allocations along the way. But is it worth it? The code is a bit more complex than it could have been, particularly considering that excellent libraries such as <a href="https://github.com/rianjs/ical.net" target="_blank" rel="noopener">iCal.NET</a>.
 
-I'm going to compare the two using <a href="https://benchmarkdotnet.org" target="_blank" rel="noopener">BenchmarkDotNet</a>. It's a decidedly apples-to-oranges comparison. iCal.Net is a fully RFC 5545-compliant library while what we're doing here is very limited in scope. It is in no way transferable to anything but this specific use case, but in our particular situation where the choice is between the two, it makes sense.
+I'm going to compare the two using <a href="https://benchmarkdotnet.org" target="_blank" rel="noopener">BenchmarkDotNet</a>. It's a decidedly apples-to-oranges comparison. iCal.NET is a fully RFC 5545-compliant library while what we're doing here is very limited in scope. It is in no way transferable to anything but this specific use case, but in our particular situation where the choice is between the two, it makes sense.
 
 {{< figure src="/assets/images/iCalPipes.png" title="Benchmark.net output" >}}
 

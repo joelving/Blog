@@ -1,7 +1,7 @@
 baseURL = "https://blog.joelving.dk/"
 languageCode = "en-us"
 defaultContentLanguage = "en-us"
-title = "Adventures in .Net"
+title = "Adventures in .NET"
 theme = ["joelving", "tranquilpeak"]
 paginate = 7
 canonifyurls = true
