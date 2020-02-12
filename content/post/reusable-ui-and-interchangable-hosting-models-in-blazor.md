@@ -2,7 +2,7 @@
 title: "Reusable UI and Interchangable hosting models in Blazor"
 slug: "reusable-ui-and-interchangable-hosting-models-in-blazor"
 date: 2020-02-11T10:00:00+02:00
-lastmod: 2020-02-11T10:00:00+02:00
+lastmod: 2020-02-12T09:30:00+02:00
 ---
 
 **Tl;dr: Enable clean and easy changing of hosting model of Blazor app by packaging your UI in a Razor Class Library and using inversion of control to provide hosting model-specific data providers to your views. In a Blazor WASM client project, implement the service using an HttpClient accessing an API. In a Blazor ServerSide (or during prerendering), implement the service using more direct access.**
@@ -25,29 +25,6 @@ We can even move our stylesheets to the class library, as long as we remember th
 
 Suppose we name our UI project "UI" and copy the wwwroot folders from the sample apps (a "css" folder containing our site.css along with bootstrap and open-iconic) into it. We'll now be able to reach them at "/_content/UI/css/site.css" for instance. As long as we update the index.html and _host.cshtml respectively, we'll be fine.
 
-### Consuming the UI
-
-With that minor change you end up with a fallback _host.cshtml for the prerendered version similar to this:
-
-{{< highlight html >}}
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Blazor WebAssembly Prerendered</title>
-    <base href="~/" />
-    <link href="/_content/ui/css/bootstrap/bootstrap.min.css" rel="stylesheet" />
-    <link href="/_content/ui/css/site.css" rel="stylesheet" />
-</head>
-<body>
-    <app>@(await Html.RenderComponentAsync<App>(RenderMode.ServerPrerendered))</app>
-
-    <script src="_framework/blazor.webassembly.js"></script>
-</body>
-</html>
-{{< /highlight >}}
-
 ## Hosting models and how to feed them data
 
 With our UI nicely wrapped, we can reference it from either of three hosting models: Blazor ServerSide, Blazor WASM standalone, or (my favorite) Blazor WASM prerendered.
@@ -64,6 +41,34 @@ With our UI nicely wrapped, we can reference it from either of three hosting mod
 Our sample weather forecast component needs to fetch the forecast. In the Visual Studio WASM template the component fetches the data from an API using an HttpClient. This breaks server side since it doesn't register an HttpClient by default. You could register it with the DI container and have it fetch the data via an API, but this scratches me the wrong way for two reasons:
 1. Blazor ServerSide usually doesn't have an API. Creating additional HTTP endpoints for this seems redundant and a maintenance burden.
 2. At best, we introduce an entire serialize-deserialize roundtrip for the data, delaying the important stuff. At worst, we end up hitting the network with delays orders of magnitude larger.
+
+### Consuming the UI
+
+Consuming our Razor Class Library is fairly straightforward, regardless of the way we choose to host our app.
+Below is the code for the _host.cshtml which our WASM.Hosted project (the prerendered version) uses to bootstrap the app:
+
+{{< highlight html >}}
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Blazor WebAssembly Prerendered</title>
+    <base href="~/" />
+    <link href="/_content/ui/css/bootstrap/bootstrap.min.css" rel="stylesheet" />
+    <link href="/_content/ui/css/site.css" rel="stylesheet" />
+</head>
+<body>
+    <app>
+        <component type="typeof(App)" render-mode="ServerPrerendered" />
+    </app>
+
+    <script src="_framework/blazor.webassembly.js"></script>
+</body>
+</html>
+{{< /highlight >}}
+
+> Update: The initial version of this post used the old Html-helper to render our UI component. Since 3.1 we've had this tag helper which does the work for us.
 
 ## The punchline: host-specific data providers
 Having the UI component depend on an interface allows us to register different implementations for WASM and server side rendering, e.g. fetching from an API using an HttpClient for WASM, and directly accessing a provider for ServerSide and prerendering.
