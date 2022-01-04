@@ -1,0 +1,1 @@
+header Content-Security-Policy "default-src 'none'; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://fonts.googleapis.com; script-src 'self' https://cdnjs.cloudflare.com; img-src 'self'; font-src https://cdnjs.cloudflare.com https://fonts.gstatic.com; manifest-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
