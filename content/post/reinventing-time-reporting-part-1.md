@@ -36,7 +36,7 @@ For our use case, our data sources are external. We'll fetch the iCal-feeds from
 
 Getting a PipeReader from a stream is a one-liner:
 
-{{< highlight csharp >}}
+{{< highlight csharp ignoreUnescapedHTML >}}
 var pipeReader = PipeReader.Create(stream, new StreamPipeReaderOptions(bufferSize: 4096));
 {{< /highlight >}}
 
@@ -47,7 +47,7 @@ Be mindful of the buffersize: Setting it too low will kill performance as the re
 {{< alert info >}}
 Prior to .NET Core 3.0, we had to include the <a href="https://www.nuget.org/packages/Pipelines.Sockets.Unofficial/" target="_blank" rel="noopener">Pipelines.Sockets.Unofficial</a>-package from Marc Gravell and the rest of the Stack Overflow team, and create the reader like so:
 
-{{< highlight csharp >}}
+{{< highlight csharp ignoreUnescapedHTML >}}
 var pipeReader = StreamConnection.GetReader(stream);
 {{< /highlight >}}
 {{< /alert >}}
@@ -58,80 +58,6 @@ When I first wrote this post a year ago, Spans were new and the APIs very focuse
 
 I've included it here, not so much to show how it's done (you should read Steve Gordon's <a href="https://www.stevejgordon.co.uk/an-introduction-to-sequencereader" target="_blank" rel="noopener">introduction to SequenceReader</a> for that) but to contrast what an immense improvement it is.
 
-{{< tabbed-codeblock tabbed_codeblock >}}
-<!-- tab js -->
-function $initHighlight(block, flags) {
-  try {
-    if (block.className.search(/\bno\-highlight\b/) != -1)
-      return processBlock(block.function, true, 0x0F) + ' class=""';
-  } catch (e) {
-    /* handle exception */
-    var e4x =
-        <div>Example
-            <p>1234</p></div>;
-  }
-  for (var i = 0 / 2; i < classes.length; i++) { // "0 / 2" should not be parsed as regexp
-    if (checkCondition(classes[i]) === undefined)
-      return /\d+[\s/]/g;
-  }
-  console.log(Array.every(classes, Boolean));
-}
-<!-- endtab -->
-<!-- tab css -->
-@media screen and (-webkit-min-device-pixel-ratio: 0) {
-  body:first-of-type pre::after {
-    content: 'highlight: ' attr(class);
-  }
-  body {
-    background: linear-gradient(45deg, blue, red);
-  }
-}
-
-@import url('print.css');
-@page:right {
- margin: 1cm 2cm 1.3cm 4cm;
-}
-
-@font-face {
-  font-family: Chunkfive; src: url('Chunkfive.otf');
-}
-
-div.text,
-#content,
-li[lang=ru] {
-  font: Tahoma, Chunkfive, sans-serif;
-  background: url('hatch.png') /* wtf? */;  color: #F0F0F0 !important;
-  width: 100%;
-}
-<!-- endtab -->
-<!-- tab html -->
-<?xml version="1.0"?>
-<response value="ok" xml:lang="en">
-  <text>Ok</text>
-  <comment html_allowed="true"/>
-  <ns1:description><![CDATA[
-  CDATA is <not> magical.
-  ]]></ns1:description>
-  <a></a> <a/>
-</response>
-
-
-<!DOCTYPE html>
-<title>Title</title>
-
-<style>body {width: 500px;}</style>
-
-<script type="application/javascript">
-  function $init() {return true;}
-</script>
-
-<body>
-  <p checked class="title" id='title'>Title</p>
-  <!-- here goes the rest of the page -->
-</body>
-<!-- endtab -->
-{{< /tabbed-codeblock >}}
-
 The .NET-team has chosen a very narrow focus for the System.Memory APIs which I applaud. With a change that propagates throughout the entire BCL, this becomes even more appropriate. Unfortunately for us, that means fewer convenience methods that we'll have to implement ourselves - including searching.
 
 Spans and Memory are abstractions over contiguous memory and searching here is easy - we have an IndexOf method just like we're used to. Unfortunately, we don't get Spans or Memorys from our Pipe, we get ReadOnlySequences. ReadOnlySequences are basically linked lists of Memory becoming an abstraction over disjoint pieces of memory. We can imagine how it works: Whenever new data comes in from the socket, it's placed into a contiguous range of memory. As data comes in (but isn't yet consumed) these pieces pile up, but while each individual piece is contiguous, we can't be sure that they are lined up one after another in physical memory. I could get them all as a contiguous piece of memory, but it would require a copy. ReadOnlySequences gives me a close abstraction, but without the copy to a new contiguous piece of memory.
@@ -139,7 +65,7 @@ Spans and Memory are abstractions over contiguous memory and searching here is e
 ReadOnlySequence has a method for finding specific content (.PositionOf), but it only accepts a single value. For our purposes, we need to find a multi-byte sequence (CRLF), so we'll have to overload PositionOf and implement it ourselves.
 We won't reinvent the wheel on this one, so if the sequence consists of only one segment, we'll hand it of to the span.
 
-{{< highlight csharp >}}
+{{< highlight csharp ignoreUnescapedHTML >}}
 [MethodImpl(MethodImplOptions.AggressiveInlining)]
 public static SequencePosition? PositionOf<T>(in this ReadOnlySequence<T> source, ReadOnlySpan<T> value) where T : IEquatable<T>
 {
@@ -162,7 +88,7 @@ public static SequencePosition? PositionOf<T>(in this ReadOnlySequence<T> source
 However, if the sequence has many elements, it's a whole other situation. We risk our needle crossing the boundaries of multiple segments, so we can't just hand of the search.
 What we'll do is search for the first element in our needle. If it matches, we'll check each successive value by simply iteration, which our ReadOnlySequence is happy to help with.
 
-{{< highlight csharp >}}
+{{< highlight csharp ignoreUnescapedHTML >}}
 public static SequencePosition? PositionOfMultiSegment<T>(in ReadOnlySequence<T> source, ReadOnlySpan<T> value) where T : IEquatable<T>
 {
     var firstVal = value[0];
@@ -226,7 +152,7 @@ This is very much a hot path, so any and all optimizations are welcome - please 
 Now that we can search for sequences of bytes, we turn our attention to RFC 5545 - the iCal specification. We're not interested in all of it. In fact, for our use case, we're only interested in events, their title, time and duration, and who participated.
 We'll setup a basic loop to look for events as data comes in.
 
-{{< highlight csharp >}}
+{{< highlight csharp ignoreUnescapedHTML >}}
 public static async ValueTask GetEvents(PipeReader reader, Action<Event> callback, CancellationToken cancellationToken = default)
 {
     while (true)
@@ -268,7 +194,7 @@ RFC 5545 is not to complicated. The file is made up of lines, which can "fold" (
 Unfortunately, we need to check that the linebreak isn't followed by a space or tab, since these denote "folding" of lines, i.e. wrapping of lines. So yet another layer of loops and counting...
 
 
-{{< highlight csharp >}}
+{{< highlight csharp ignoreUnescapedHTML >}}
 private static void ReadEvent(ReadOnlySequence<byte> payload, out Event nextEvent)
 {
     nextEvent = new Event();
@@ -321,13 +247,13 @@ private static void ReadEvent(ReadOnlySequence<byte> payload, out Event nextEven
 
 With our line neatly cut out for us, we can split it according to <a href="https://tools.ietf.org/html/rfc5545" target="_blank" rel="noopener">RFC 5545</a>. In particular, we need the syntax:
 
-{{< highlight pseudo >}}
+{{< highlight pseudo ignoreUnescapedHTML >}}
 contentline = name *(";" param ) ":" value CRLF
 {{< /highlight >}}
 
 Since our interest is very limited, we won't bother with parameters for now. If you want to expand on the code for your own use, you'd just create yet another loop looking for semi-colons. For now, we'll find the first colon and take whatever comes after as the value, and the first semi-colon and whatever comes before as the property name. Then we'll update our event accordingly.
 
-{{< highlight csharp >}}
+{{< highlight csharp ignoreUnescapedHTML >}}
 private static bool TryParseLine(ReadOnlySequence<byte> buffer, Event nextEvent)
 {
     // Per RFC 5545 contentlines have the following syntax:
@@ -370,7 +296,7 @@ private static void UpdateProperty(ReadOnlySequence<byte> name, ReadOnlySequence
 
 Only thing missing is the .ToString(Encoding encoding) overload above. Creating strings from ReadOnlySequences aren't very easy and documentation is very sparse, so I added the extension method based on David Fowler's article.
 
-{{< highlight csharp >}}
+{{< highlight csharp ignoreUnescapedHTML >}}
 [MethodImpl(MethodImplOptions.AggressiveInlining)]
 public static string ToString(in this ReadOnlySequence<byte> buffer, Encoding encoding)
 {

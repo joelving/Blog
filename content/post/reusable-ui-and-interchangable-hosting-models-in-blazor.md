@@ -47,7 +47,7 @@ Our sample weather forecast component needs to fetch the forecast. In the Visual
 Consuming our Razor Class Library is fairly straightforward, regardless of the way we choose to host our app.
 Below is the code for the _host.cshtml which our WASM.Hosted project (the prerendered version) uses to bootstrap the app:
 
-{{< highlight html >}}
+{{< highlight html ignoreUnescapedHTML >}}
 <!DOCTYPE html>
 <html>
 <head>
@@ -75,7 +75,7 @@ Having the UI component depend on an interface allows us to register different i
 
 To get a semblance of clean architecture (see [Jason Taylors](https://twitter.com/jasontaylordev "@jasontaylordev") great [way to do this](https://github.com/jasontaylordev/CleanArchitecture "Clean architecture") or see [his talk at NDC London 2019](https://www.youtube.com/watch?v=Zygw4UAxCdg "Clean Architecture with ASP.NET Core 2.2 - Jason Taylor") on the topic) we'll define the interface needed to provide data to the UI in the UI project, and let the implementations reside in the respective hosting projects.
 
-{{< highlight csharp >}}
+{{< highlight csharp ignoreUnescapedHTML >}}
 // Defined in the UI project.
 public interface IWeatherForecastService
 {
@@ -116,7 +116,7 @@ public class WeatherForecastService : IWeatherForecastService
 The WeatherForecastProvider is where our business logic resides. In our case, it's merely the code for generating randomized weather forecasts that's part of the project templates.
 The only missing link is the API controller, which also has the WeatherForecastProvider injected and - like the server projects - passes on the data from it the WASM client.
 
-{{< highlight csharp >}}
+{{< highlight csharp ignoreUnescapedHTML >}}
 public class WeatherForecastProvider
 {
 	private static readonly string[] Summaries = new[]
