@@ -19,7 +19,7 @@ So how do we do it? We need to offload the processing to something other than ou
 Basically, what we'll need is pretty close to what [Luke Latham wrote about](https://docs.microsoft.com/en-us/aspnet/core/fundamentals/host/hosted-services#queued-background-tasks): A singleton thread-safe queue which we can queue jobs to, and a processor inheriting from IHostedService, which can dispatch the jobs for processing.
 
 So we need a straightforward queue:
-{{< highlight csharp ignoreUnescapedHTML >}}
+{{< highlight csharp >}}
 public interface IBackgroundQueue<T>
 {
     Task EnqueueAsync(T job, CancellationToken cancellationToken);
@@ -29,7 +29,7 @@ public interface IBackgroundQueue<T>
 {{< /highlight >}}
 
 A simple processor:
-{{< highlight csharp ignoreUnescapedHTML >}}
+{{< highlight csharp >}}
 public interface IBackgroundJobProcessor<T>
 {
     Task ProcessJob((T job, Action callback) job, CancellationToken cancellationToken);
@@ -37,7 +37,7 @@ public interface IBackgroundJobProcessor<T>
 {{< /highlight >}}
 
 And something to dispatch from one to the other:
-{{< highlight csharp ignoreUnescapedHTML >}}
+{{< highlight csharp >}}
 public class BackgroundQueueService<T> : BackgroundService
 {
     public IBackgroundQueue<T> TaskQueue { get; }
@@ -91,7 +91,7 @@ Second, we have an implicit requirement that our DequeueAsync task only complete
 Third, while our queue itself runs in its own thread, we fire off our jobs *to the thread pool* without awaiting them. It's crucial that the queue runs in it's own non-thread poll thread, since running it on the thread pool would permanently leave us with a thread fewer to process requests. On the other hand, since our processing of jobs are non-blocking and short-lived, we're okay dispatching them to the thread pool.
 
 To wire it all up, we'll add the following to our ConfigureServices in our Startup class:
-{{< highlight csharp ignoreUnescapedHTML >}}
+{{< highlight csharp >}}
 services.AddSingleton<IBackgroundQueue<SyncJob>, SyncJobQueue>();
 services.AddTransient<IBackgroundJobProcessor<SyncJob>, SyncJobProcessor>();
 services.AddHostedService<BackgroundQueueService<SyncJob>>();
@@ -104,7 +104,7 @@ With a little logging we'll see something like the following:
 Our tasks run in the contexts we expected, yay!
 
 I promised to get back to how we could await dequeueing work items from our queue. In essence, our queue is an enhanced ConcurrentQueue:
-{{< highlight csharp ignoreUnescapedHTML >}}
+{{< highlight csharp >}}
 public class SyncJobQueue : IBackgroundQueue<SyncJob>
 {
     private ConcurrentQueue<SyncJob> _workItems = new ConcurrentQueue<SyncJob>();
@@ -155,17 +155,17 @@ At the core of SignalR is the Hub. Hubs are SignalR equivalents of MVC controlle
 
 What make hubs more than just an endpoint for your websocket connection is groups. Groups allow you to group (*cough*) connected clients by some key and invoke methods on them all with a single call.
 Adding a user to a group is as simple as calling:
-{{< highlight csharp ignoreUnescapedHTML >}}
+{{< highlight csharp >}}
 await Groups.AddToGroupAsync(Context.ConnectionId, groupName);
 {{< /highlight >}}
 where groupName is a string. Then you can invoke methods on all clients in the group using
-{{< highlight csharp ignoreUnescapedHTML >}}
+{{< highlight csharp >}}
 await Clients.Groups(groupName).SendAsync(methodName, obj, obj, obj..., cancellationToken)
 {{< /highlight >}}
 You can even have [strongly-typed hubs](https://docs.microsoft.com/en-us/aspnet/core/signalr/hubs#strongly-typed-hubs) which we'll use here.
 
 We can thus share two interfaces between client and server:
-{{< highlight csharp ignoreUnescapedHTML >}}
+{{< highlight csharp >}}
 public interface ICalendarHub
 {
     Task ListCalendars();
@@ -175,7 +175,7 @@ public interface ICalendarHub
 }
 {{< /highlight >}}
 and
-{{< highlight csharp ignoreUnescapedHTML >}}
+{{< highlight csharp >}}
 public interface ICalendarClient
 {
     Task ReceiveCalendars(ListCalendarsResult result);
@@ -188,7 +188,7 @@ public interface ICalendarClient
 No more magic strings. We'll even strongly type the payloads, so we don't accidentally switch out a task id for a calendar name or something like it.
 
 So our hub ends up looking a bit like this:
-{{< highlight csharp ignoreUnescapedHTML >}}
+{{< highlight csharp >}}
 public class CalendarHub : Hub<ICalendarClient>, ICalendarHub
 {
     // ...
@@ -254,7 +254,7 @@ We'll connect our client to the hub, so it can invoke a method to update a progr
 We can't get the complete hub, which is probably good, since it contains a lot of state with plenty of room for us to mess up. What we can get is a HubContext, which can access groups and clients. Plenty for our purpose.
 
 Bringing it all together, we can write our job processor:
-{{< highlight csharp ignoreUnescapedHTML >}}
+{{< highlight csharp >}}
 public class SyncJobProcessor : IBackgroundJobProcessor<SyncJob>
 {
     private readonly IHubContext<CalendarHub, ICalendarClient> _hubContext;
@@ -309,7 +309,7 @@ Now everyone who's subscribed to the group will get updates on the progress. Fan
 
 ## Don't forget Polly!
 In our job processor above, we fetch the iCal-feed using HTTP. But what if it fails? If the error seems transient, we may want to retry it potentially with a backing off scheme. Using Polly and the new HttpClientFactory, we'll simply register a named http client in our Startup class:
-{{< highlight csharp ignoreUnescapedHTML >}}
+{{< highlight csharp >}}
 services.AddHttpClient("RetryBacking")
     .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler())
     .AddTransientHttpErrorPolicy(builder => builder.WaitAndRetryAsync(new[]
@@ -320,7 +320,7 @@ services.AddHttpClient("RetryBacking")
     }));
 {{< /highlight >}}
 which will register a HttpClient that will retry three times when encountering what it deems to be transient errors, waiting 1 second the first time, 3 the second and 5 the last time. In our constructor, we'll do:
-{{< highlight csharp ignoreUnescapedHTML >}}
+{{< highlight csharp >}}
 public SyncJobProcessor(IHttpClientFactory httpClientFactory)
 {
     _httpClient = httpClientFactory.CreateClient("RetryBacking");

@@ -36,7 +36,7 @@ For our use case, our data sources are external. We'll fetch the iCal-feeds from
 
 Getting a PipeReader from a stream is a one-liner:
 
-{{< highlight csharp ignoreUnescapedHTML >}}
+{{< highlight csharp >}}
 var pipeReader = PipeReader.Create(stream, new StreamPipeReaderOptions(bufferSize: 4096));
 {{< /highlight >}}
 
@@ -47,7 +47,7 @@ Be mindful of the buffersize: Setting it too low will kill performance as the re
 {{< alert info >}}
 Prior to .NET Core 3.0, we had to include the <a href="https://www.nuget.org/packages/Pipelines.Sockets.Unofficial/" target="_blank" rel="noopener">Pipelines.Sockets.Unofficial</a>-package from Marc Gravell and the rest of the Stack Overflow team, and create the reader like so:
 
-{{< highlight csharp ignoreUnescapedHTML >}}
+{{< highlight csharp >}}
 var pipeReader = StreamConnection.GetReader(stream);
 {{< /highlight >}}
 {{< /alert >}}
@@ -65,7 +65,7 @@ Spans and Memory are abstractions over contiguous memory and searching here is e
 ReadOnlySequence has a method for finding specific content (.PositionOf), but it only accepts a single value. For our purposes, we need to find a multi-byte sequence (CRLF), so we'll have to overload PositionOf and implement it ourselves.
 We won't reinvent the wheel on this one, so if the sequence consists of only one segment, we'll hand it of to the span.
 
-{{< highlight csharp ignoreUnescapedHTML >}}
+{{< highlight csharp >}}
 [MethodImpl(MethodImplOptions.AggressiveInlining)]
 public static SequencePosition? PositionOf<T>(in this ReadOnlySequence<T> source, ReadOnlySpan<T> value) where T : IEquatable<T>
 {
@@ -88,7 +88,7 @@ public static SequencePosition? PositionOf<T>(in this ReadOnlySequence<T> source
 However, if the sequence has many elements, it's a whole other situation. We risk our needle crossing the boundaries of multiple segments, so we can't just hand of the search.
 What we'll do is search for the first element in our needle. If it matches, we'll check each successive value by simply iteration, which our ReadOnlySequence is happy to help with.
 
-{{< highlight csharp ignoreUnescapedHTML >}}
+{{< highlight csharp >}}
 public static SequencePosition? PositionOfMultiSegment<T>(in ReadOnlySequence<T> source, ReadOnlySpan<T> value) where T : IEquatable<T>
 {
     var firstVal = value[0];
@@ -152,7 +152,7 @@ This is very much a hot path, so any and all optimizations are welcome - please 
 Now that we can search for sequences of bytes, we turn our attention to RFC 5545 - the iCal specification. We're not interested in all of it. In fact, for our use case, we're only interested in events, their title, time and duration, and who participated.
 We'll setup a basic loop to look for events as data comes in.
 
-{{< highlight csharp ignoreUnescapedHTML >}}
+{{< highlight csharp >}}
 public static async ValueTask GetEvents(PipeReader reader, Action<Event> callback, CancellationToken cancellationToken = default)
 {
     while (true)
@@ -194,7 +194,7 @@ RFC 5545 is not to complicated. The file is made up of lines, which can "fold" (
 Unfortunately, we need to check that the linebreak isn't followed by a space or tab, since these denote "folding" of lines, i.e. wrapping of lines. So yet another layer of loops and counting...
 
 
-{{< highlight csharp ignoreUnescapedHTML >}}
+{{< highlight csharp >}}
 private static void ReadEvent(ReadOnlySequence<byte> payload, out Event nextEvent)
 {
     nextEvent = new Event();
@@ -247,13 +247,13 @@ private static void ReadEvent(ReadOnlySequence<byte> payload, out Event nextEven
 
 With our line neatly cut out for us, we can split it according to <a href="https://tools.ietf.org/html/rfc5545" target="_blank" rel="noopener">RFC 5545</a>. In particular, we need the syntax:
 
-{{< highlight pseudo ignoreUnescapedHTML >}}
+{{< highlight text >}}
 contentline = name *(";" param ) ":" value CRLF
 {{< /highlight >}}
 
 Since our interest is very limited, we won't bother with parameters for now. If you want to expand on the code for your own use, you'd just create yet another loop looking for semi-colons. For now, we'll find the first colon and take whatever comes after as the value, and the first semi-colon and whatever comes before as the property name. Then we'll update our event accordingly.
 
-{{< highlight csharp ignoreUnescapedHTML >}}
+{{< highlight csharp >}}
 private static bool TryParseLine(ReadOnlySequence<byte> buffer, Event nextEvent)
 {
     // Per RFC 5545 contentlines have the following syntax:
@@ -296,7 +296,7 @@ private static void UpdateProperty(ReadOnlySequence<byte> name, ReadOnlySequence
 
 Only thing missing is the .ToString(Encoding encoding) overload above. Creating strings from ReadOnlySequences aren't very easy and documentation is very sparse, so I added the extension method based on David Fowler's article.
 
-{{< highlight csharp ignoreUnescapedHTML >}}
+{{< highlight csharp >}}
 [MethodImpl(MethodImplOptions.AggressiveInlining)]
 public static string ToString(in this ReadOnlySequence<byte> buffer, Encoding encoding)
 {
