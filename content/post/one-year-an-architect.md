@@ -2,7 +2,7 @@
 title: "One year an architect"
 slug: "one-year-an-architect"
 date: 2024-05-01T12:30:00+02:00
-lastmod: 2025-05-01T12:30:00+02:00
+lastmod: 2024-05-01T12:30:00+02:00
 ---
 
 Today marks the one-year anniversary of me stepping into a formal architecture role from that of a backend developer, and I'd like to reflect a bit on what I've learned during that time.
